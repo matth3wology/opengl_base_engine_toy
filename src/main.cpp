@@ -164,9 +164,58 @@ public:
   }
 };
 
+class Controller {
+public:
+  virtual void update(Character &Character, GLFWwindow *window,
+                      float deltaTime) = 0;
+};
+
+class KeyboardController : public Controller {
+public:
+  void update(Character &character, GLFWwindow *window,
+              float deltaTime) override {
+    float dx = 0.0f, dy = 0.0f;
+
+    // WASD movement
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+      dy += 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+      dy -= 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+      dx -= 1.0f;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+      dx += 1.0f;
+
+    // Rotation
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+      character.rotation += glm::radians(90.0f) * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+      character.rotation -= glm::radians(90.0f) * deltaTime;
+
+    character.rotation = fmod(character.rotation, glm::two_pi<float>());
+
+    // Move relative to rotation
+    glm::vec3 right =
+        glm::vec3(cos(character.rotation), sin(character.rotation), 0.0f);
+    glm::vec3 forward =
+        glm::vec3(-sin(character.rotation), cos(character.rotation), 0.0f);
+
+    glm::vec3 velocity = (dy * forward + dx * right) * deltaTime * 2.0f;
+    character.position += velocity;
+  }
+};
+
 class Hero : public Character {
 public:
-  Hero(std::shared_ptr<Mesh> meshPtr) : Character(meshPtr) {}
+  std::unique_ptr<Controller> controller;
+
+  Hero(std::shared_ptr<Mesh> meshPtr, std::unique_ptr<Controller> ctrl)
+      : Character(meshPtr), controller(std::move(ctrl)) {}
+
+  void update(GLFWwindow *window, float deltaTime) {
+    if (controller)
+      controller->update(*this, window, deltaTime);
+  }
 };
 
 class GEngine {
@@ -226,7 +275,8 @@ public:
     shader = std::make_unique<ShaderPipeline>(vertexShaderSource,
                                               fragmentShaderSource);
 
-    hero = std::make_unique<Hero>(MeshFactory::createPyramid());
+    hero = std::make_unique<Hero>(MeshFactory::createPyramid(),
+                                  std::make_unique<KeyboardController>());
   }
 
   ~GEngine() {
@@ -251,34 +301,7 @@ public:
     hero->render(*shader);
   }
 
-  void update(float deltaTime) {
-    float dx = 0.0f, dy = 0.0f;
-
-    // WASD controls
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-      dy += 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-      dy -= 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-      dx -= 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-      dx += 1.0f;
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) // rotate left
-      hero->rotation += glm::radians(90.0f) * deltaTime;
-    hero->rotation = fmod(hero->rotation, glm::two_pi<float>());
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) // rotate right
-      hero->rotation -= glm::radians(90.0f) * deltaTime;
-    hero->rotation = fmod(hero->rotation, glm::two_pi<float>());
-
-    // Move hero relative to current position
-    // hero->rotation += fmod(dx, 180);
-    glm::vec3 right = glm::vec3(cos(hero->rotation), sin(hero->rotation), 0.0f);
-    glm::vec3 forward =
-        glm::vec3(-sin(hero->rotation), cos(hero->rotation), 0.0f);
-
-    glm::vec3 velocity = (dy * forward + dx * right) * deltaTime * 2.0f;
-    hero->position += velocity;
-  }
+  void update(float deltaTime) { hero->update(window, deltaTime); }
 };
 
 int main() {
