@@ -27,7 +27,15 @@ set(GLFW_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw)
 
+# Fetch SDL2
+FetchContent_Declare(
+  SDL2
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+  GIT_TAG release-2.30.2  # pick a stable release
+)
+FetchContent_MakeAvailable(SDL2)
 
+# -----------------------------
 # -----------------------------
 # Fetch GLAD (for OpenGL function loading)
 # -----------------------------
@@ -89,5 +97,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     glad
     glm
+    SDL2::SDL2 
+    SDL2::SDL2main
 )
 
